@@ -1,0 +1,134 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  reddit-wordcloud
+
+  Sample SAM Template for reddit-wordcloud
+
+# More info about Globals: https://github.com/awslabs/serverless-application-model/blob/master/docs/globals.rst
+Globals:
+  Function:
+    Timeout: 3
+
+Resources:
+  RedditWordcloudFunction:
+    Type: AWS::Serverless::Function # More info about Function Resource: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#awsserverlessfunction
+    Properties:
+      FunctionName: reddit_wordcloud
+      CodeUri: reddit_wordcloud/
+      Handler: app.lambda_handler
+      Runtime: python3.9
+      Architectures:
+        - x86_64
+      Timeout: 30
+  RedditBaseCommentsLambda:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: reddit_get_comments
+      CodeUri: reddit_get_comments/
+      Handler: app.lambda_handler
+      Runtime: python3.9
+      Architectures:
+        - x86_64
+      Role: !GetAtt RedditLambdaExecutionRole.Arn
+      Timeout: 60
+  RedditMoreCommentsLambda:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: reddit_more_comments
+      CodeUri: reddit_more_comments/
+      Handler: app.lambda_handler
+      Runtime: python3.9
+      Architectures:
+        - x86_64
+      Role: !GetAtt RedditLambdaExecutionRole.Arn
+      Timeout: 30
+  RedditLambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties: 
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement: 
+          - Effect: Allow
+            Principal: 
+              Service: 
+                - lambda.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      Policies:
+        - PolicyName: allowS3Access
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:PutObject
+                  - s3:PutObjectAcl
+                  - s3:GetObject
+                  - s3:GetObjectAcl
+                  - s3:DeleteObject
+                  - s3:List*
+                Resource: 
+                  - !Sub arn:aws:s3:::${RedditCommentsBucket}/*
+                  - !Sub arn:aws:s3:::${RedditCommentsBucket}
+        - PolicyName: allowGetApiToken
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement: 
+              - Effect: Allow
+                Action: 
+                  - lambda:InvokeFunction
+                Resource: !Sub 'arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:get_api_access_token'
+        - PolicyName: allowLogs
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: 
+                  - logs:*
+                Resource: arn:aws:logs:*:*:*
+        - PolicyName: allowSqs
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - sqs:SendMessage
+                  - sqs:ReceiveMessage
+                  - sqs:DeleteMessage
+                  - sqs:GetQueueAttributes
+                  - sqs:ChangeMessageVisibility
+                Resource: !GetAtt RedditCommentsQueue.Arn
+  RedditCommentsQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: "reddit-comments-queue"
+      DelaySeconds: 0
+      VisibilityTimeout: 120
+  RedditCommentsEventSourceMapping:
+    Type: AWS::Lambda::EventSourceMapping
+    Properties:
+      BatchSize: 10
+      Enabled: true
+      FunctionName: !GetAtt RedditMoreCommentsLambda.Arn
+      EventSourceArn: !GetAtt RedditCommentsQueue.Arn
+  RedditWordCloudBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: com.wgolden.reddit-word-cloud
+  RedditCommentsBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: com.wgolden.reddit-comments 
+        
+
+Outputs:
+  # ServerlessRestApi is an implicit API created out of Events key under Serverless::Function
+  # Find out more about other implicit resources you can reference within SAM
+  # https://github.com/awslabs/serverless-application-model/blob/master/docs/internals/generated_resources.rst#api
+  RedditWordcloudFunction:
+    Description: "Generate a word cloud from a reddit post"
+    Value: !GetAtt RedditWordcloudFunction.Arn
+  RedditWordcloudFunctionIamRole:
+    Description: "Implicit IAM Role created for Reddit Wordcloud function"
+    Value: !GetAtt RedditWordcloudFunctionRole.Arn
