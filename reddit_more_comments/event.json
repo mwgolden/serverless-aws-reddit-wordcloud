@@ -1,5 +1,0 @@
-{
-    "Records":[{
-        "body": "{\"post_id\": \"y8tz9q\", \"start\": 0, \"stop\": 100, \"request_headers\": {\"Authorization\": \"Bearer -DtVEAW0u_NMhvX5U5sl5QYbLL0zqmA\", \"User-Agent\": \"MyFirstRedditBot/0.1\"}, \"s3_bucket\": \"com.wgolden.reddit-comments\", \"bucket_key\": \"temp/y8tz9q_more_comments.json\", \"page\": 1, \"total_pages\": 335}"
-    }]
-}
