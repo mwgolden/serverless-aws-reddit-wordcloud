@@ -11,16 +11,6 @@ Globals:
     Timeout: 3
 
 Resources:
-  RedditWordcloudFunction:
-    Type: AWS::Serverless::Function # More info about Function Resource: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#awsserverlessfunction
-    Properties:
-      FunctionName: reddit_wordcloud
-      CodeUri: reddit_wordcloud/
-      Handler: app.lambda_handler
-      Runtime: python3.9
-      Architectures:
-        - x86_64
-      Timeout: 30
   RedditBaseCommentsLambda:
     Type: AWS::Serverless::Function
     Properties:
@@ -31,7 +21,7 @@ Resources:
       Architectures:
         - x86_64
       Role: !GetAtt RedditLambdaExecutionRole.Arn
-      Timeout: 60
+      Timeout: 300
   RedditMoreCommentsLambda:
     Type: AWS::Serverless::Function
     Properties:
@@ -119,16 +109,17 @@ Resources:
   RedditCommentsBucket:
     Type: AWS::S3::Bucket
     Properties:
-      BucketName: com.wgolden.reddit-comments 
+      BucketName: com.wgolden.reddit-comments
+        
         
 
 Outputs:
   # ServerlessRestApi is an implicit API created out of Events key under Serverless::Function
   # Find out more about other implicit resources you can reference within SAM
   # https://github.com/awslabs/serverless-application-model/blob/master/docs/internals/generated_resources.rst#api
-  RedditWordcloudFunction:
-    Description: "Generate a word cloud from a reddit post"
-    Value: !GetAtt RedditWordcloudFunction.Arn
-  RedditWordcloudFunctionIamRole:
-    Description: "Implicit IAM Role created for Reddit Wordcloud function"
-    Value: !GetAtt RedditWordcloudFunctionRole.Arn
+  RedditBaseCommentsLambda:
+    Description: "Get comments from reddit post"
+    Value: !GetAtt RedditBaseCommentsLambda.Arn
+  RedditLambdaExecutionRole:
+    Description: "Implicit IAM Role created for Reddit comments"
+    Value: !GetAtt RedditLambdaExecutionRole.Arn

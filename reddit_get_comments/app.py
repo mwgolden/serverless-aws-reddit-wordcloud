@@ -41,13 +41,10 @@ def get_base_comments(post_id, headers):
         more = reduce(lambda a, b: a + b, more_comments)
     return (comments, more)
 
-def save_to_bucket(json_object):
-    post_id = json_object['post_id']
-    page = json_object['page']
-    key = f"{post_id}/{post_id}_{page}.json"
+def save_to_bucket(json_object, key):    
     s3 = boto3.resource("s3")
     obj = s3.Object(BUCKET, key)
-    response = obj.put(Body=json.dumps(json_object))
+    response = obj.put(Body=json.dumps(json_object['comments']))
     return response
 
 def queue_more_comments(message):
@@ -57,39 +54,48 @@ def queue_more_comments(message):
     print(response)
 
 def lambda_handler(event, context):
-    inputParams = {
-        "bot_name":"reddit_bot"
-    }    
-    api_token = get_api_token(inputParams)
+    bot_name = event['bot_name']
+    post_id = event['post_id']  
+    api_token = get_api_token({"bot_name":bot_name})
     headers = {
         "Authorization": f"Bearer {api_token}",
         "User-Agent":"MyFirstRedditBot/0.1"
     }
-    post_id = 'y8tz9q'
     comments, more = get_base_comments(post_id, headers)
     total_pages = math.ceil(len(more) / 100)
+    page = 0
     obj = {
         "post_id": post_id,
-        "page":0,
+        "page":page,
         "total_pages": total_pages,
         "comments":comments 
     }
-    saved = save_to_bucket(obj)
-    page_num = 0
-
-    while len(more) > 0:
-        more_comments = more[:100]
-        more = more[100:]
-        page_num =  page_num + 1
-        message = {
-            "bot_name":"reddit_bot",
-            "user_agent": "MyFirstRedditBot/0.1",
-            "post_id": "y8tz9q",
-            "comments": more_comments,
-            "page_num": page_num,
+    key = f"postid={post_id}/page={page}/{post_id}.json"
+    saved = save_to_bucket(obj, key)
+    more_comments = {
+        "post_id": post_id,
+        "comments": more,
+        "page_size": 100,
+        "total_pages": total_pages,
+        "request_headers": headers     
+    } 
+    more_comments_key = f"temp/{post_id}_more_comments.json"
+    save_to_bucket(more_comments, more_comments_key)
+    for i in range(0, total_pages):
+        start = i * 100
+        stop = start + 100
+        page = i + 1
+        msg = {
+            "post_id": post_id,
+            "start": start,
+            "stop": stop,
+            "request_headers": headers,
+            "s3_bucket": BUCKET,
+            "bucket_key": more_comments_key,
+            "page": page,
             "total_pages": total_pages
-        } 
-        queue_more_comments(message)  
+        }
+        queue_more_comments(msg)  
     return {
         "statusCode": 200,
         "body": saved
